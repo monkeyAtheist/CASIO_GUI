@@ -1,0 +1,17 @@
+PHASE 19 VALIDATION
+
+strict C++17 syntax: 0
+screenshot regression build: 0
+screenshot regression run: 0
+
+PASS: filename sanitization
+PASS: safe screenshots/image.bmp path
+PASS: BMP signature BM
+PASS: 24-bit BMP header
+PASS: expected DWIDTH x DHEIGHT file size
+PASS: streaming scanline write
+PASS: GUI screenshot prompt/shortcut API syntax
+PASS: screenshot.cpp registered in CMake
+
+The host dgetpixel stub is uniform; the physical GRAPH 90+E remains
+authoritative for actual RGB565 screen colors and write duration.

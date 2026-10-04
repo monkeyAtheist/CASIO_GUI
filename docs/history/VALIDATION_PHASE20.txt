@@ -1,0 +1,14 @@
+PHASE 20 VALIDATION
+
+strict C++17 syntax: 0
+screenshot regression build: 0
+screenshot regression run: 0
+
+PASS: /Capt-style dedicated screenshot root
+PASS: filename sanitization
+PASS: full BMP preallocation before scanline writes
+PASS: lseek back to file start
+PASS: expected final BMP size
+PASS: streaming one-row memory usage
+
+Physical GRAPH 90+E validation remains authoritative for Fugue/BFile behavior.

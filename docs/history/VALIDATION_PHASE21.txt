@@ -1,0 +1,17 @@
+PHASE 21 VALIDATION
+
+strict C++17 syntax: 0
+regression build: 0
+regression run: 0
+
+PASS: RGB565 VRAM snapshot before filesystem phase
+PASS: screenshot BMP generated from RAM snapshot
+PASS: expected 396x224 24-bit BMP size
+PASS: screenshot filesystem worker contains no gint display calls
+PASS: generic ConfigFile save/load through world-call host shim
+PASS: generic safe storage write/read/remove
+
+Target behavior differs intentionally: real fxSDK uses one
+gint_world_switch(GINT_CALL(...)) around the whole screenshot write and
+world-switches generic file operations. Physical GRAPH 90+E validation is
+the authoritative test for Fugue stability.

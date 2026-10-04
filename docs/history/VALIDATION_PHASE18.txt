@@ -1,0 +1,15 @@
+PHASE 18 VALIDATION
+
+strict syntax: 0
+focus regression build: 0
+focus regression run: 0
+
+PASS: nested Checkbox toggles without focus
+PASS: nested Slider still requests focus
+PASS: TabView -> Panel -> Checkbox stays non-focusable by pointer
+PASS: TabView header remains a focus target
+PASS: gui_test_image.png registered in ASSETS_cg and ASSETS_fx
+PASS: assets-cg metadata exports img_gui_test
+PASS: main requires strong img_gui_test symbol
+
+Real fxSDK remains authoritative for fxconv conversion/linking.
