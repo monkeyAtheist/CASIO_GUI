@@ -1,0 +1,12 @@
+		{
+			"type": "shell",
+			"label": "clean and build",
+			"command": "rm -rf build-cg && fxsdk build-cg",
+			"problemMatcher": []
+		},
+		{
+			"type": "shell",
+			"label": "run",
+			"command": "~/casio-emu/build/calcemu ~/casio/CASIO_GAME/CASIO_GAME.g3a",
+			"problemMatcher": []
+		}

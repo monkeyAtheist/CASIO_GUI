@@ -1,6 +1,6 @@
 # ==============================================================================
 # CASIO application
-# fxSDK / gint / CASIO_GUI
+# fxSDK / gint / METTRE_LE_NOM_DU_PROJET
 #
 # Build:
 #   fxsdk build-fx
@@ -10,7 +10,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(
-    GUI
+    TEMP PROJECT NAME
 
     VERSION 1.0.0
 
@@ -24,7 +24,7 @@ project(
 # ------------------------------------------------------------------------------
 
 set(APP_TARGET "${PROJECT_NAME}")
-set(APP_NAME "GUI")
+set(APP_NAME "METTRE_LE_NOM_DU_PROJET")
 
 # ------------------------------------------------------------------------------
 # fxSDK
