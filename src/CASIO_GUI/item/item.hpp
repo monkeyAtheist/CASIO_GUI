@@ -365,21 +365,135 @@ struct itemEvent
         DRAG
     };
 
+    // Bit mask used when a caller wants to register the same callback for
+    // several event types at once (eg. KEY_DOWN | KEY_PRESS).
+    //
+    // eventType itself intentionally remains a simple enum because an actual
+    // dispatched event always has one and only one type. eventMask is only a
+    // registration convenience.
+    struct eventMask
+    {
+        unsigned int bits = 0;
+
+        constexpr eventMask() = default;
+        constexpr explicit eventMask(unsigned int _bits) : bits(_bits) {}
+
+        constexpr bool contains(eventType type) const
+        {
+            return (bits & (1u << static_cast<unsigned int>(type))) != 0u;
+        }
+
+        constexpr bool empty() const
+        {
+            return bits == 0u;
+        }
+    };
+
+    static constexpr eventMask mask(eventType type)
+    {
+        return eventMask{1u << static_cast<unsigned int>(type)};
+    }
+
+    // Legacy single-type field kept for source compatibility. When several
+    // types are supplied, this contains the first type in the mask. Internal
+    // event matching uses `types`, not this field.
     eventType type = eventType::KEY_DOWN;
+
+    // One control callback can now react to one or several event types.
+    eventMask types = mask(eventType::KEY_DOWN);
+
     int keyEvent = KEY_EXE;
     std::function<void()> callback = nullptr;
 
+    static constexpr eventType firstType(eventMask _types)
+    {
+        return _types.contains(eventType::HOVER)     ? eventType::HOVER :
+               _types.contains(eventType::KEY_UP)    ? eventType::KEY_UP :
+               _types.contains(eventType::KEY_DOWN)  ? eventType::KEY_DOWN :
+               _types.contains(eventType::KEY_PRESS) ? eventType::KEY_PRESS :
+               _types.contains(eventType::DRAG)      ? eventType::DRAG :
+                                                       eventType::KEY_DOWN;
+    }
+
     itemEvent() = default;
+
+    // Existing API: one event type.
     itemEvent(
         eventType _type,
         int _keyEvent,
         std::function<void()> _callback)
         : type(_type),
+          types(mask(_type)),
           keyEvent(_keyEvent),
           callback(_callback)
     {
     }
+
+    // New API: several control event types at once.
+    // Example:
+    //   ItemEvent{KEY_DOWN | KEY_PRESS, KEY_LEFT, callback}
+    itemEvent(
+        eventMask _types,
+        int _keyEvent,
+        std::function<void()> _callback)
+        : type(firstType(_types)),
+          types(_types),
+          keyEvent(_keyEvent),
+          callback(_callback)
+    {
+    }
+
+    bool accepts(eventType _type) const
+    {
+        return types.contains(_type);
+    }
+
+    void setType(eventType _type)
+    {
+        type = _type;
+        types = mask(_type);
+    }
+
+    void setTypes(eventMask _types)
+    {
+        types = _types;
+        type = firstType(_types);
+    }
 };
+
+// Combine event types when registering a GUI/global event.
+// Examples:
+//   KEY_DOWN | KEY_PRESS
+//   KEY_DOWN | KEY_PRESS | KEY_UP
+constexpr itemEvent::eventMask operator|(
+    itemEvent::eventType lhs,
+    itemEvent::eventType rhs)
+{
+    return itemEvent::eventMask{
+        itemEvent::mask(lhs).bits | itemEvent::mask(rhs).bits
+    };
+}
+
+constexpr itemEvent::eventMask operator|(
+    itemEvent::eventMask lhs,
+    itemEvent::eventType rhs)
+{
+    return itemEvent::eventMask{lhs.bits | itemEvent::mask(rhs).bits};
+}
+
+constexpr itemEvent::eventMask operator|(
+    itemEvent::eventType lhs,
+    itemEvent::eventMask rhs)
+{
+    return itemEvent::eventMask{itemEvent::mask(lhs).bits | rhs.bits};
+}
+
+constexpr itemEvent::eventMask operator|(
+    itemEvent::eventMask lhs,
+    itemEvent::eventMask rhs)
+{
+    return itemEvent::eventMask{lhs.bits | rhs.bits};
+}
 
 inline static bool ctohx(char c , int *s) {
     char x = 0;
@@ -407,6 +521,7 @@ class item{
     int getY() const   {return param.pos.y;}
     int getW() const   {return param.pos.w;}
     int getH() const   {return param.pos.h;}
+    STRUCT_pos getPosition() const {return param.pos;}
     int getZOrder() const {return zOrder;}
     int getPointerX() const {return pointerX;}
     int getPointerY() const {return pointerY;}
@@ -414,7 +529,6 @@ class item{
 
     STRUCT_pos getGeometry() const {return param.pos;}
     void setGeometry(STRUCT_pos pos) {param.pos = pos;}
-    void setPosition(int x, int y) {param.pos.x = x; param.pos.y = y;}
     void setDimensions(int w, int h) {param.pos.w = w; param.pos.h = h;}
     void setItemVisible(bool value) {param.status.visible = value;}
     void setItemDimmed(bool value) {param.status.dimmed = value;}
@@ -499,7 +613,24 @@ class item{
     void setLabelOnHover(std::string l)     {param.label.label_on_hover = l;}
     void setLabelOffHover(std::string l)    {param.label.label_off_hover = l;}
 
-    void connectCallback(std::function<void()> cb, int keyEvent = KEY_EXE , itemEvent::eventType type = itemEvent::eventType::KEY_DOWN) {event.callback = cb; event.keyEvent = keyEvent; event.type = type;};
+    void connectCallback(
+        std::function<void()> cb,
+        int keyEvent = KEY_EXE,
+        itemEvent::eventType type = itemEvent::eventType::KEY_DOWN)
+    {
+        event = itemEvent{type, keyEvent, cb};
+    };
+
+    // Same callback for several control event types.
+    // Example:
+    //   button.connectCallback(cb, KEY_EXE, KEY_DOWN | KEY_PRESS);
+    void connectCallback(
+        std::function<void()> cb,
+        int keyEvent,
+        itemEvent::eventMask types)
+    {
+        event = itemEvent{types, keyEvent, cb};
+    };
     void callCbFunc() {if(event.callback) event.callback();};
 
     virtual bool contains(int x, int y) const;
@@ -538,7 +669,7 @@ class item{
     virtual void handleGlobalEvent(int eventType, int eventKey) {(void)eventType; (void)eventKey;};
 
     bool isClick(int clkEvent) {param.status.clicked = (param.status.hover && !param.status.dimmed && param.status.visible && event.keyEvent == clkEvent); return param.status.clicked;}
-    bool isDrag() {return (param.status.draged && !param.status.dimmed && param.status.visible && event.type == itemEvent::eventType::DRAG);}
+    bool isDrag() {return (param.status.draged && !param.status.dimmed && param.status.visible && event.accepts(itemEvent::eventType::DRAG));}
     void updateItemStatus(int x , int y) {isHover(x, y); isClick(event.keyEvent); isDrag();};
     void clearHover() {param.status.hover = false;};
     void clearPointerState() {param.status.hover = false; param.status.clicked = false; param.status.draged = false;};
@@ -546,7 +677,6 @@ class item{
     virtual void draw() = 0;
 
     protected:
-    void setPos(int x , int y)  {param.pos.x = x; param.pos.y = y;};
     void setSize(int w , int h) {param.pos.w = w; param.pos.h = h;};
     void setStructPos(STRUCT_pos _pos) {param.pos = _pos;};
     void setVisible(bool v) {param.status.visible = v;};

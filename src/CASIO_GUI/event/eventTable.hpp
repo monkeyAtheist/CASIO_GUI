@@ -92,6 +92,68 @@ class listEventTable
         return true;
     }
 
+    // Register the same callback for several event types at once.
+    //
+    // Example:
+    //   addEvent(KEY_DOWN | KEY_PRESS, KEY_LEFT, callback);
+    //
+    // Internally the mask is expanded into ordinary single-type events. This
+    // keeps dispatch fast and preserves the existing eventTableKey semantics.
+    // Registration is atomic: if one requested event already exists, nothing
+    // is added and the function returns false.
+    bool addEvent(
+        itemEvent::eventMask _types,
+        int _keyEvent,
+        std::function<void()> _callback)
+    {
+        if(_types.empty())
+            return false;
+
+        constexpr itemEvent::eventType supportedTypes[] =
+        {
+            itemEvent::eventType::HOVER,
+            itemEvent::eventType::KEY_UP,
+            itemEvent::eventType::KEY_DOWN,
+            itemEvent::eventType::KEY_PRESS,
+            itemEvent::eventType::DRAG
+        };
+
+        // Validate first so a failed registration never leaves a half-added
+        // group of events.
+        for(itemEvent::eventType type : supportedTypes)
+        {
+            if(_types.contains(type) && hasEvent(type, _keyEvent))
+                return false;
+        }
+
+        bool added = false;
+
+        for(itemEvent::eventType type : supportedTypes)
+        {
+            if(!_types.contains(type))
+                continue;
+
+            // The previous pass guarantees that this cannot fail because of a
+            // duplicate key. std::function is intentionally copied so every
+            // event owns a valid callback.
+            listEvent.emplace(
+                eventTableKey{type, _keyEvent},
+                eventTable{type, _keyEvent, _callback}
+            );
+            added = true;
+        }
+
+        return added;
+    }
+
+    // Same multi-type registration for any keyboard key.
+    bool addEvent(
+        itemEvent::eventMask _types,
+        std::function<void()> _callback)
+    {
+        return addEvent(_types, EVENT_ANY_KEY, _callback);
+    }
+
     // Add a general event for an event type.
     // Example: KEY_DOWN for any key.
     bool addEvent(itemEvent::eventType _type, std::function<void()> _callback)

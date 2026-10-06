@@ -367,31 +367,61 @@ void item::chckEvent(int eventType, int eventKey)
     if(!event.callback)
         return;
 
-    switch(event.type)
+    bool matched = false;
+
+    // HOVER is pointer-state based. Restrict it to non-keyboard cycles so a
+    // mask such as HOVER | KEY_DOWN never invokes the callback twice for the
+    // same physical key event.
+    if(
+        event.accepts(itemEvent::eventType::HOVER) &&
+        eventType == KEYEV_NONE &&
+        param.status.hover)
     {
-        case itemEvent::eventType::HOVER :
-            if(param.status.hover)
-                event.callback();
-            break;
-        case itemEvent::eventType::KEY_UP :
-            if(eventType != KEYEV_UP || param.status.clicked == false || event.keyEvent != eventKey)
-                break;
-            event.callback();
-            break;
-        case itemEvent::eventType::KEY_DOWN :
-            if(eventType != KEYEV_DOWN || param.status.clicked == false || event.keyEvent != eventKey)
-                break;
-            event.callback();
-            break;
-        case itemEvent::eventType::KEY_PRESS :
-            if(((eventType != KEYEV_DOWN) && (eventType != KEYEV_HOLD)) || param.status.clicked == false || event.keyEvent != eventKey)
-                break;
-            event.callback();
-            break;
-        case itemEvent::eventType::DRAG :
-            // if(eventType != KEYEV_DOWN || param.status.dragged == true || event.keyEvent != eventKey)
-            break;
+        matched = true;
     }
+
+    // KEY_UP reacts to the release of the configured key.
+    if(
+        !matched &&
+        event.accepts(itemEvent::eventType::KEY_UP) &&
+        eventType == KEYEV_UP &&
+        param.status.clicked &&
+        event.keyEvent == eventKey)
+    {
+        matched = true;
+    }
+
+    // KEY_DOWN reacts once to the initial press.
+    if(
+        !matched &&
+        event.accepts(itemEvent::eventType::KEY_DOWN) &&
+        eventType == KEYEV_DOWN &&
+        param.status.clicked &&
+        event.keyEvent == eventKey)
+    {
+        matched = true;
+    }
+
+    // Preserve the historical control semantics: KEY_PRESS accepts both the
+    // initial KEYEV_DOWN and subsequent KEYEV_HOLD events. Because `matched`
+    // is already true for KEY_DOWN above, KEY_DOWN | KEY_PRESS still invokes
+    // the callback only once on the first press, then once per HOLD event.
+    if(
+        !matched &&
+        event.accepts(itemEvent::eventType::KEY_PRESS) &&
+        (eventType == KEYEV_DOWN || eventType == KEYEV_HOLD) &&
+        param.status.clicked &&
+        event.keyEvent == eventKey)
+    {
+        matched = true;
+    }
+
+    // DRAG currently has no callback dispatch in the legacy implementation.
+    // The mask support is nevertheless preserved so existing/future drag
+    // handling can query event.accepts(DRAG).
+
+    if(matched)
+        event.callback();
 }
 
 bool item::contains(int x, int y) const
